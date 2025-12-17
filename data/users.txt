@@ -1,0 +1,4 @@
+Admin,1007,menna,2007,m
+Lecturer,2003,somaia,s,s
+Lecturer,1,m,m,m
+Student,5,menna,menna,menna
