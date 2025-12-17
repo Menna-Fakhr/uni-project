@@ -18,7 +18,7 @@ public class StudentGUI extends JFrame {
         this.examManager = examManager;
         this.userManager = userManager;
         setTitle("Student Dashboard - " + student.getUsername());
-        setSize(800, 600);
+        setSize(900, 650);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -43,19 +43,23 @@ public class StudentGUI extends JFrame {
         
         mainPanel.add(headerPanel, BorderLayout.NORTH);
 
-        // Buttons panel with modern styling
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        // Buttons panel with modern styling - using GridLayout for 2 rows
+        JPanel buttons = new JPanel(new GridLayout(2, 3, 10, 10));
         buttons.setOpaque(false);
         buttons.setBorder(new EmptyBorder(0, 0, 15, 0));
         
         JButton btnViewExams = createStyledButton("📋 View Exams", new Color(25, 118, 210));
         JButton btnTakeExam = createStyledButton("✍️ Take Exam", new Color(46, 125, 50));
         JButton btnViewResults = createStyledButton("📊 View Results", new Color(255, 152, 0));
+        JButton btnSendFeedback = createStyledButton("💬 Send Feedback", new Color(0, 150, 136));
+        JButton btnRequestRecorrection = createStyledButton("🔄 Request Recorrection", new Color(244, 67, 54));
         JButton btnUpdateInfo = createStyledButton("⚙️ Update Info", new Color(156, 39, 176));
 
         buttons.add(btnViewExams);
         buttons.add(btnTakeExam);
         buttons.add(btnViewResults);
+        buttons.add(btnSendFeedback);
+        buttons.add(btnRequestRecorrection);
         buttons.add(btnUpdateInfo);
 
         // Output area with modern styling
@@ -88,6 +92,8 @@ public class StudentGUI extends JFrame {
         btnViewExams.addActionListener(e -> viewExams());
         btnTakeExam.addActionListener(e -> takeExam());
         btnViewResults.addActionListener(e -> viewResults());
+        btnSendFeedback.addActionListener(e -> sendFeedback());
+        btnRequestRecorrection.addActionListener(e -> requestRecorrection());
         btnUpdateInfo.addActionListener(e -> updateInfo());
 
         setVisible(true);
@@ -186,6 +192,208 @@ public class StudentGUI extends JFrame {
             outputArea.setCaretPosition(outputArea.getDocument().getLength());
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void sendFeedback() {
+        // Create feedback dialog
+        JDialog feedbackDialog = new JDialog(this, "Send Feedback", true);
+        feedbackDialog.setSize(500, 400);
+        feedbackDialog.setLocationRelativeTo(this);
+        feedbackDialog.setLayout(new BorderLayout(10, 10));
+        feedbackDialog.getContentPane().setBackground(new Color(245, 247, 250));
+
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
+        mainPanel.setBackground(Color.WHITE);
+
+        // Category selection
+        JPanel categoryPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        categoryPanel.setOpaque(false);
+        JLabel categoryLabel = new JLabel("Category:");
+        categoryLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        String[] categories = {"General", "Technical", "Suggestion", "Complaint"};
+        JComboBox<String> categoryCombo = new JComboBox<>(categories);
+        categoryCombo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        categoryPanel.add(categoryLabel);
+        categoryPanel.add(categoryCombo);
+
+        // Feedback text area
+        JLabel feedbackLabel = new JLabel("Your Feedback:");
+        feedbackLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        JTextArea feedbackText = new JTextArea(10, 30);
+        feedbackText.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        feedbackText.setLineWrap(true);
+        feedbackText.setWrapStyleWord(true);
+        feedbackText.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200)),
+            new EmptyBorder(10, 10, 10, 10)
+        ));
+        JScrollPane scrollPane = new JScrollPane(feedbackText);
+
+        // Buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        buttonPanel.setOpaque(false);
+        JButton btnSubmit = createStyledButton("Submit", new Color(46, 125, 50));
+        JButton btnCancel = createStyledButton("Cancel", new Color(158, 158, 158));
+
+        btnSubmit.addActionListener(e -> {
+            String feedback = feedbackText.getText().trim();
+            if (feedback.isEmpty()) {
+                JOptionPane.showMessageDialog(feedbackDialog, "Please enter your feedback", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            String category = (String) categoryCombo.getSelectedItem();
+            Feedback feedbackObj = new Feedback(student.getId(), student.getUsername(), feedback, category);
+            examManager.addFeedback(feedbackObj);
+            JOptionPane.showMessageDialog(feedbackDialog, "Feedback submitted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            outputArea.append("✓ Feedback submitted: " + category + "\n");
+            outputArea.setCaretPosition(outputArea.getDocument().getLength());
+            feedbackDialog.dispose();
+        });
+
+        btnCancel.addActionListener(e -> feedbackDialog.dispose());
+
+        buttonPanel.add(btnSubmit);
+        buttonPanel.add(btnCancel);
+
+        mainPanel.add(categoryPanel, BorderLayout.NORTH);
+        mainPanel.add(feedbackLabel, BorderLayout.CENTER);
+        mainPanel.add(scrollPane, BorderLayout.CENTER);
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        feedbackDialog.add(mainPanel);
+        feedbackDialog.setVisible(true);
+    }
+
+    private void requestRecorrection() {
+        try {
+            // Get exam ID
+            String examIdStr = JOptionPane.showInputDialog(this, "Enter Exam ID:", "Request Recorrection", JOptionPane.QUESTION_MESSAGE);
+            if (examIdStr == null || examIdStr.trim().isEmpty()) return;
+            int examId = Integer.parseInt(examIdStr);
+            
+            Exam exam = examManager.findExamById(examId);
+            if (exam == null) {
+                JOptionPane.showMessageDialog(this, "Exam not found", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Ask if they want to request for entire exam or specific question
+            int option = JOptionPane.showOptionDialog(this,
+                "Do you want to request recorrection for the entire exam or a specific question?",
+                "Recorrection Request",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                new String[]{"Entire Exam", "Specific Question", "Cancel"},
+                "Entire Exam");
+
+            final int questionId; // 0 means entire exam
+            String questionInfo;
+            
+            if (option == 1) { // Specific Question
+                String questionIdStr = JOptionPane.showInputDialog(this, "Enter Question ID (or 0 for entire exam):", "Request Recorrection", JOptionPane.QUESTION_MESSAGE);
+                if (questionIdStr == null || questionIdStr.trim().isEmpty()) return;
+                int tempQuestionId = Integer.parseInt(questionIdStr);
+                
+                if (tempQuestionId != 0) {
+                    Question question = exam.getQuestions().stream()
+                        .filter(q -> q.getId() == tempQuestionId)
+                        .findFirst()
+                        .orElse(null);
+                    
+                    if (question == null) {
+                        JOptionPane.showMessageDialog(this, "Question not found in this exam", "Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    questionId = tempQuestionId;
+                    questionInfo = "Question " + questionId + ": " + question.getText();
+                } else {
+                    questionId = 0;
+                    questionInfo = "Entire Exam";
+                }
+            } else if (option == JOptionPane.CLOSED_OPTION || option == 2) {
+                return; // User cancelled
+            } else {
+                questionId = 0;
+                questionInfo = "Entire Exam";
+            }
+
+            // Create recorrection dialog
+            JDialog recorrectionDialog = new JDialog(this, "Request Exam Recorrection", true);
+            recorrectionDialog.setSize(550, 400);
+            recorrectionDialog.setLocationRelativeTo(this);
+            recorrectionDialog.setLayout(new BorderLayout(10, 10));
+            recorrectionDialog.getContentPane().setBackground(new Color(245, 247, 250));
+
+            JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+            mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
+            mainPanel.setBackground(Color.WHITE);
+
+            // Exam and question info
+            JLabel infoLabel = new JLabel("<html><b>Student ID:</b> " + student.getId() + " (" + student.getUsername() + ")<br>" +
+                                         "<b>Exam ID:</b> " + examId + " - " + exam.getCourse().getName() + "<br>" +
+                                         "<b>Request For:</b> " + questionInfo + "</html>");
+            infoLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            infoLabel.setBorder(new EmptyBorder(0, 0, 15, 0));
+
+            // Reason text area
+            JLabel reasonLabel = new JLabel("Reason for Recorrection Request:");
+            reasonLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            JTextArea reasonText = new JTextArea(8, 35);
+            reasonText.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            reasonText.setLineWrap(true);
+            reasonText.setWrapStyleWord(true);
+            reasonText.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200)),
+                new EmptyBorder(10, 10, 10, 10)
+            ));
+            JScrollPane scrollPane = new JScrollPane(reasonText);
+
+            // Buttons
+            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+            buttonPanel.setOpaque(false);
+            JButton btnSubmit = createStyledButton("Submit Request", new Color(244, 67, 54));
+            JButton btnCancel = createStyledButton("Cancel", new Color(158, 158, 158));
+
+            btnSubmit.addActionListener(e -> {
+                String reason = reasonText.getText().trim();
+                if (reason.isEmpty()) {
+                    JOptionPane.showMessageDialog(recorrectionDialog, "Please provide a reason for recorrection", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                RecorrectionRequest request = new RecorrectionRequest(
+                    student.getId(), 
+                    student.getUsername(), 
+                    examId, 
+                    questionId, 
+                    reason
+                );
+                examManager.addRecorrectionRequest(request);
+                JOptionPane.showMessageDialog(recorrectionDialog, "Recorrection request submitted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                outputArea.append("✓ Recorrection request submitted for Exam " + examId + " (Student: " + student.getId() + ")\n");
+                outputArea.setCaretPosition(outputArea.getDocument().getLength());
+                recorrectionDialog.dispose();
+            });
+
+            btnCancel.addActionListener(e -> recorrectionDialog.dispose());
+
+            buttonPanel.add(btnSubmit);
+            buttonPanel.add(btnCancel);
+
+            mainPanel.add(infoLabel, BorderLayout.NORTH);
+            mainPanel.add(reasonLabel, BorderLayout.CENTER);
+            mainPanel.add(scrollPane, BorderLayout.CENTER);
+            mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+            recorrectionDialog.add(mainPanel);
+            recorrectionDialog.setVisible(true);
+
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Invalid ID format", "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 

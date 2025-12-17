@@ -10,11 +10,15 @@ public class ExamManager {
     private static final String EXAMS_FILE = "data/exams.txt";
     private static final String QUESTIONS_FILE = "data/questions.txt";
     private static final String ANSWERS_FILE = "data/answers.txt";
+    private static final String FEEDBACK_FILE = "data/feedback.txt";
+    private static final String RECORRECTION_FILE = "data/recorrections.txt";
 
     private List<Course> courses = new ArrayList<>();
     private List<Exam> exams = new ArrayList<>();
     private List<Question> questions = new ArrayList<>(); // All questions across exams
     private List<StudentAnswer> answers = new ArrayList<>();
+    private List<Feedback> feedbacks = new ArrayList<>();
+    private List<RecorrectionRequest> recorrectionRequests = new ArrayList<>();
 
     public ExamManager() {
         ensureDataDirectory();
@@ -33,6 +37,8 @@ public class ExamManager {
         loadExams();
         loadQuestions();
         loadAnswers();
+        loadFeedbacks();
+        loadRecorrections();
     }
 
     private void loadCourses() {
@@ -104,6 +110,36 @@ public class ExamManager {
         }
     }
 
+    private void loadFeedbacks() {
+        try (BufferedReader br = new BufferedReader(new FileReader(FEEDBACK_FILE))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().isEmpty()) {
+                    feedbacks.add(Feedback.fromString(line));
+                }
+            }
+        } catch (FileNotFoundException e) {
+            // OK
+        } catch (Exception e) {
+            System.out.println("Error loading feedbacks: " + e.getMessage());
+        }
+    }
+
+    private void loadRecorrections() {
+        try (BufferedReader br = new BufferedReader(new FileReader(RECORRECTION_FILE))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().isEmpty()) {
+                    recorrectionRequests.add(RecorrectionRequest.fromString(line));
+                }
+            }
+        } catch (FileNotFoundException e) {
+            // OK
+        } catch (Exception e) {
+            System.out.println("Error loading recorrections: " + e.getMessage());
+        }
+    }
+
     private void saveAll() {
         saveCourses();
         saveExams();
@@ -157,6 +193,32 @@ public class ExamManager {
         }
     }
 
+    private void saveFeedbacks() {
+        ensureDataDirectory();
+        try (PrintWriter pw = new PrintWriter(new FileWriter(FEEDBACK_FILE))) {
+            for (Feedback f : feedbacks) {
+                pw.println(f.toString());
+            }
+        } catch (Exception e) {
+            System.out.println("Error saving feedbacks: " + e.getMessage());
+        }
+    }
+
+    private void saveRecorrections() {
+        ensureDataDirectory();
+        try (PrintWriter pw = new PrintWriter(new FileWriter(RECORRECTION_FILE))) {
+            for (RecorrectionRequest r : recorrectionRequests) {
+                pw.println(r.toString());
+            }
+        } catch (Exception e) {
+            System.out.println("Error saving recorrections: " + e.getMessage());
+        }
+    }
+
+    public void updateRecorrectionStatus(RecorrectionRequest request) {
+        saveRecorrections();
+    }
+
     public Course createCourse(int id, String name) {
         if (courses.stream().anyMatch(c -> c.getId() == id)) {
             throw new IllegalArgumentException("Course ID exists");
@@ -206,23 +268,23 @@ public class ExamManager {
     }
 
     public float gradeExam(int examId, int studentId) {
-    Exam exam = findExamById(examId);
-    if (exam == null) return 0;
-    List<StudentAnswer> studentAnswers = answers.stream()
-            .filter(a -> a.getStudentId() == studentId && a.getExamId() == examId)
-            .collect(Collectors.toList());
-    float total = 0;
-    for (StudentAnswer sa : studentAnswers) {
-        Question q = exam.getQuestions().stream()
-                .filter(qq -> qq.getId() == sa.getQuestionId())  // Fixed here: (qq -> ...)
-                .findFirst()
-                .orElse(null);
-        if (q != null) {
-            total += q.grade(sa);
+        Exam exam = findExamById(examId);
+        if (exam == null) return 0;
+        List<StudentAnswer> studentAnswers = answers.stream()
+                .filter(a -> a.getStudentId() == studentId && a.getExamId() == examId)
+                .collect(Collectors.toList());
+        float total = 0;
+        for (StudentAnswer sa : studentAnswers) {
+            Question q = exam.getQuestions().stream()
+                    .filter(qq -> qq.getId() == sa.getQuestionId())
+                    .findFirst()
+                    .orElse(null);
+            if (q != null) {
+                total += q.grade(sa);
+            }
         }
+        return total;
     }
-    return total;
-}
 
     public String generateGradeReport(int examId) {
         Exam exam = findExamById(examId);
@@ -255,5 +317,29 @@ public class ExamManager {
 
     public Course findCourseById(int id) {
         return courses.stream().filter(c -> c.getId() == id).findFirst().orElse(null);
+    }
+
+    public void addFeedback(Feedback feedback) {
+        feedbacks.add(feedback);
+        saveFeedbacks();
+    }
+
+    public void addRecorrectionRequest(RecorrectionRequest request) {
+        recorrectionRequests.add(request);
+        saveRecorrections();
+    }
+
+    public List<RecorrectionRequest> getRecorrectionRequestsByStudent(int studentId) {
+        return recorrectionRequests.stream()
+            .filter(r -> r.getStudentId() == studentId)
+            .collect(Collectors.toList());
+    }
+
+    public List<Feedback> getAllFeedbacks() {
+        return new ArrayList<>(feedbacks);
+    }
+
+    public List<RecorrectionRequest> getAllRecorrectionRequests() {
+        return new ArrayList<>(recorrectionRequests);
     }
 }
